@@ -1,0 +1,27 @@
+// Address family constants
+var AF_INET
+var AF_INET6
+var AF_UNIX
+
+// Socket type constants
+var SOCK_STREAM
+var SOCK_DGRAM
+
+// TODO: add documentation 
+
+class Socket
+    native new(family, type, proto=0, fd=null)
+    native bind(addr, port)
+    native listen(backlog=0)
+    native accept()
+    native send(data)
+    native recv(size)
+    native close()
+end
+
+class SocketException end
+
+begin
+    native init()
+    init()
+end
