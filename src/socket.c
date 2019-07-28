@@ -55,9 +55,9 @@ static bool Socket_bind(BlangVM *vm) {
     int family = blGetNumber(vm, -1);
 
     struct sockaddr_in sockaddr;
-	memset(&sockaddr, 0, sizeof(sockaddr));
-	sockaddr.sin_family = family;
-	sockaddr.sin_port = htons(blGetNumber(vm, 2));
+    memset(&sockaddr, 0, sizeof(sockaddr));
+    sockaddr.sin_family = family;
+    sockaddr.sin_port = htons(blGetNumber(vm, 2));
     if(family == AF_INET || family == AF_INET6) {
         int res;
         if((res = inet_pton(family, blGetString(vm, 1), &sockaddr.sin_addr.s_addr)) < 0) {
@@ -70,7 +70,7 @@ static bool Socket_bind(BlangVM *vm) {
 
     if(bind(sock, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) {
 		BL_RAISE(vm, "SocketException", strerror(errno));
-	}
+    }
 
     blPushNull(vm);
     return true;
@@ -100,7 +100,7 @@ static bool Socket_accept(BlangVM *vm) {
     
     int clientSock;
     struct sockaddr_in client;
-	socklen_t clientLen = sizeof(client);
+    socklen_t clientLen = sizeof(client);
     if((clientSock = accept(sock, (struct sockaddr *) &client, &clientLen)) < 0) {
         if(errno == EWOULDBLOCK || errno == EAGAIN) {
             blPushNull(vm);
