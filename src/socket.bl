@@ -16,6 +16,9 @@ class Socket
     native accept()
     native send(data)
     native recv(size)
+    native sendto(addr, port, data)
+    native recvfrom(size)
+    native connect(addr, port)
     native close()
 end
 

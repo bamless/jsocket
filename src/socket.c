@@ -1,10 +1,92 @@
 #include <blang.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/un.h>
 #include <unistd.h>
+
+
+union sockaddr_union {
+    struct sockaddr sa;
+    struct sockaddr_in s4;
+    struct sockaddr_in6 s6;
+    struct sockaddr_un sun;
+};
+
+static int resolveHostName(int family, const char *hostname, void *buf) {
+    struct addrinfo hints, *res;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = family;
+    hints.ai_flags |= AI_CANONNAME;
+
+    int err = getaddrinfo(hostname, NULL, &hints, &res);
+    if(err) return err;
+
+    if(res) {
+        switch(family) {
+        case AF_INET: {
+            in_addr_t *ip = (in_addr_t*) buf;
+            *ip = ((struct sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
+            break;
+        }
+        case AF_INET6: {
+            struct sockaddr_in6 *sockaddr = ((struct sockaddr_in6*)res->ai_addr);
+            uint8_t **ip = (uint8_t**) buf;
+            memcpy(*ip, sockaddr->sin6_addr.s6_addr, sizeof(sockaddr->sin6_addr.s6_addr));
+            break;
+        }
+        }
+    }
+
+    return 0;
+}
+
+static bool fillSockaddr(BlangVM *vm, union sockaddr_union *sockaddr, int family, const char *addr, 
+                         int port, socklen_t *len) 
+{
+    memset(sockaddr, 0, sizeof(*sockaddr));
+    sockaddr->sa.sa_family = family;
+
+    switch(family) {
+    case AF_INET: {
+        *len = sizeof(sockaddr->s4);
+        sockaddr->s4.sin_port = htons(port);
+        int err = inet_pton(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr);
+        if(err < 0) BL_RAISE(vm, "SocketExcpetion", strerror(errno));
+        // not a valid ipv4, try hostname
+        if(err == 0) {
+            err = resolveHostName(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr);
+            if(err) BL_RAISE(vm, "SocketException", gai_strerror(err));
+        }
+        break;
+    }
+    case AF_INET6: {
+        *len = sizeof(sockaddr->s6);
+        sockaddr->s6.sin6_port = htons(port);
+        int err = inet_pton(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr);
+        if(err < 0) BL_RAISE(vm, "SocketExcpetion", strerror(errno));
+        // not a valid ipv4, try hostname
+        if(err == 0) {
+            err = resolveHostName(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr);
+            if(err) BL_RAISE(vm, "SocketException", gai_strerror(err));
+        }
+        break;
+    }
+    case AF_UNIX: {
+        *len = sizeof(sockaddr->sun);
+        strncpy(sockaddr->sun.sun_path, addr, sizeof(sockaddr->sun.sun_path) - 1);
+        break;
+    }
+    default:
+        BL_RAISE(vm, "TypeException", "Ivalid socket family: %d.", family);
+        break;
+    }
+    
+    return true;
+}
 
 //class Socket
 
@@ -54,21 +136,13 @@ static bool Socket_bind(BlangVM *vm) {
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FAMILY)) return false;
     int family = blGetNumber(vm, -1);
 
-    struct sockaddr_in sockaddr;
-    memset(&sockaddr, 0, sizeof(sockaddr));
-    sockaddr.sin_family = family;
-    sockaddr.sin_port = htons(blGetNumber(vm, 2));
-    if(family == AF_INET || family == AF_INET6) {
-        int res;
-        if((res = inet_pton(family, blGetString(vm, 1), &sockaddr.sin_addr.s_addr)) < 0) {
-            if(res == 0) BL_RAISE(vm, "SocketException", "Invalid IP address.");
-            BL_RAISE(vm, "SocketExcpetion", strerror(errno));
-        }
-    } else if((sockaddr.sin_addr.s_addr = inet_addr(blGetString(vm, 1))) == 0) {
-        BL_RAISE(vm, "SocketException", "Invalid address.");
+    socklen_t socklen;
+    union sockaddr_union sockaddr;
+    if(!fillSockaddr(vm, &sockaddr, family, blGetString(vm, 1), blGetNumber(vm, 2), &socklen)) {
+        return false;
     }
 
-    if(bind(sock, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) {
+    if(bind(sock, &sockaddr.sa, socklen)) {
 		BL_RAISE(vm, "SocketException", strerror(errno));
     }
 
@@ -99,9 +173,9 @@ static bool Socket_accept(BlangVM *vm) {
     int sock = blGetNumber(vm, -1);
     
     int clientSock;
-    struct sockaddr_in client;
+    union sockaddr_union client;
     socklen_t clientLen = sizeof(client);
-    if((clientSock = accept(sock, (struct sockaddr *) &client, &clientLen)) < 0) {
+    if((clientSock = accept(sock, &client.sa, &clientLen)) < 0) {
         if(errno == EWOULDBLOCK || errno == EAGAIN) {
             blPushNull(vm);
             return true;
@@ -117,16 +191,30 @@ static bool Socket_accept(BlangVM *vm) {
     blPushNumber(vm, clientSock);
     if(blCall(vm, 4) != VM_EVAL_SUCCSESS) return false;
 
-    if(client.sin_family != AF_UNIX) {
-        char buf[INET6_ADDRSTRLEN];
-        if(inet_ntop(client.sin_family, &client.sin_addr.s_addr, buf, sizeof(buf)) == NULL) {
+    switch(client.sa.sa_family) {
+    case AF_INET: {
+        char buf[INET_ADDRSTRLEN];
+        if(!inet_ntop(client.s4.sin_family, &client.s4.sin_addr.s_addr, buf, sizeof(buf))) {
             BL_RAISE(vm, "SocketException", strerror(errno));
         }
         blPushString(vm, buf);
-        blPushTuple(vm, 2);
-        return true;
+        break;
+    }
+    case AF_INET6: {
+        char buf[INET6_ADDRSTRLEN];
+        if(!inet_ntop(client.s6.sin6_family, &client.s6.sin6_addr.s6_addr, buf, sizeof(buf))) {
+            BL_RAISE(vm, "SocketException", strerror(errno));
+        }
+        blPushString(vm, buf);
+        break;
+    }
+    case AF_UNIX:
+        blPushString(vm, client.sun.sun_path);
+        break;
+    default: break;
     }
 
+    blPushTuple(vm, 2);
     return true;
 }
 
@@ -169,6 +257,7 @@ static bool Socket_recv(BlangVM *vm) {
     ssize_t received;
     if((received = recv(sock, buf.data, size, 0)) < 0) {
         if(errno == EWOULDBLOCK || errno == EAGAIN) {
+            blBufferFree(&buf);
             blPushNull(vm);
             return true;
         }
@@ -176,6 +265,126 @@ static bool Socket_recv(BlangVM *vm) {
     }
     buf.len += received;
     blBufferPush(&buf);
+    return true;
+}
+
+static bool Socket_sendto(BlangVM *vm) {
+    if(!blCheckStr(vm, 1, "addr") || !blCheckInt(vm, 2, "port") || !blCheckStr(vm, 3, "data")) {
+        return false;
+    }
+
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+
+    blGetField(vm, 0, M_SOCKET_FAMILY);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FAMILY)) return false;
+    int family = blGetNumber(vm, -1);
+
+    socklen_t socklen;
+    union sockaddr_union sockaddr;
+    if(!fillSockaddr(vm, &sockaddr, family, blGetString(vm, 1), blGetNumber(vm, 2), &socklen)) {
+        return false;
+    }
+
+    const char *data = blGetString(vm, 3);
+    size_t dataLen = blGetStringSz(vm, 3); 
+
+    ssize_t sent;
+    if((sent = sendto(sock, data, dataLen, 0, &sockaddr.sa, socklen)) < 0) {
+        BL_RAISE(vm, "SocketException", strerror(errno));
+    }
+
+    blPushNumber(vm, sent);
+    return true;
+}
+
+static bool Socket_recvfrom(BlangVM *vm) {
+    if(!blCheckInt(vm, 1, "size")) {
+        return false;
+    }
+    size_t size = blGetNumber(vm, 1);
+
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+    
+    BlBuffer buf;
+    blBufferInitSz(vm, &buf, size);
+
+    union sockaddr_union sockaddr;
+    socklen_t socklen = sizeof(sockaddr);
+    memset(&sockaddr, 0, sizeof(sockaddr));
+
+    ssize_t received;
+    if((received = recvfrom(sock, buf.data, size, 0, &sockaddr.sa, &socklen)) < 0) {
+        if(errno == EWOULDBLOCK || errno == EAGAIN) {
+            blBufferFree(&buf);
+            blPushNull(vm);
+            return true;
+        }
+        BL_RAISE(vm, "SocketException", strerror(errno));
+    }
+    buf.len += received;
+    blBufferPush(&buf);
+
+    switch(sockaddr.sa.sa_family) {
+    case AF_INET: {
+        char buf[INET_ADDRSTRLEN];
+        if(!inet_ntop(sockaddr.s4.sin_family, &sockaddr.s4.sin_addr.s_addr, buf, sizeof(buf))) {
+            BL_RAISE(vm, "SocketException", strerror(errno));
+        }
+        blPushString(vm, buf);
+        blPushNumber(vm, ntohs(sockaddr.s4.sin_port));
+        blPushTuple(vm, 2);
+        blPushTuple(vm, 2);
+        return true;
+    }
+    case AF_INET6: {
+        char buf[INET6_ADDRSTRLEN];
+        if(!inet_ntop(sockaddr.s6.sin6_family, &sockaddr.s6.sin6_addr.s6_addr, buf, sizeof(buf))) {
+            BL_RAISE(vm, "SocketException", strerror(errno));
+        }
+        blPushString(vm, buf);
+        blPushNumber(vm, ntohs(sockaddr.s6.sin6_port));
+        blPushTuple(vm, 2);
+        blPushTuple(vm, 2);
+        return true;
+    }
+    case AF_UNIX:
+        blPushString(vm, sockaddr.sun.sun_path);
+        break;
+    default: break;
+    }
+
+    blPushTuple(vm, 2);
+    return true;
+}
+
+static bool Socket_connect(BlangVM *vm) {
+    if(!blCheckStr(vm, 1, "addr") || !blCheckInt(vm, 2, "port")) {
+        return false;
+    }
+
+    blGetField(vm, 0, M_SOCKET_FAMILY);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FAMILY)) return false;
+    int family = blGetNumber(vm, -1);
+
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+
+    socklen_t socklen;
+    union sockaddr_union sockaddr;
+    if(!fillSockaddr(vm, &sockaddr, family, blGetString(vm, 1), blGetNumber(vm, 2), &socklen)) {
+        return false;
+    }
+
+    if(connect(sock, &sockaddr.sa, socklen) < 0) {
+        BL_RAISE(vm, "SocketException", strerror(errno));
+    }
+
+    blPushNull(vm);
     return true;
 }
 
@@ -227,8 +436,9 @@ static BlNativeReg registry[] = {
     BL_REGMETH(Socket, accept, &Socket_accept)
     BL_REGMETH(Socket, send, &Socket_send)
     BL_REGMETH(Socket, recv, &Socket_recv)
-    // TODO: add recvfrom
-    // TODO: add connect
+    BL_REGMETH(Socket, sendto, &Socket_sendto)
+    BL_REGMETH(Socket, recvfrom, &Socket_recvfrom)
+    BL_REGMETH(Socket, connect, &Socket_connect)
     BL_REGMETH(Socket, close, &Socket_close)
     BL_REGFUNC(init, &init)
     BL_REGEND

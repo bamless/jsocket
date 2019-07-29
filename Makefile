@@ -7,7 +7,7 @@ dir:
 	@mkdir -p bin
 
 bin/libsocket.so: src/socket.c
-	gcc -Wall -Wextra -std=c99 -Wno-unused-parameter -shared -o $@ $< -Wl,-rpath /usr/local/lib -lblang
+	gcc -D_POSIX_C_SOURCE=200112 -Wall -Wextra -std=c99 -Wno-unused-parameter -o3 -s -shared -o $@ $< -Wl,-rpath /usr/local/lib -lblang
 
 .PHONY: install
 install:
