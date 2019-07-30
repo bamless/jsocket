@@ -7,18 +7,87 @@ var AF_UNIX
 var SOCK_STREAM
 var SOCK_DGRAM
 
-// TODO: add documentation 
-
+// Berkeley socket API interface
+// For meaning of constants please refer to the Berkeley socket API documentation
 class Socket
+    // Creates a new socket with specified family type and protocol
+    // @arg family the address family of the socket. Supported: AF_INET, AF_INET6, AF_UNIX
+    // @arg type the type pf the socket. Supported: SOCK_STREAM, SOCK_DGRAM
+    // @proto usually 0, specifies the protocol to be used with the socket
+    // @fd should be left to null. Used to create a new Socket object from a file descriptor
     native new(family, type, proto=0, fd=null)
+
+    // Binds a socket to and address and a port
+    // @arg addr address on which the socket will be bound. can be a string representation of an
+    //      IPv4 address, IPv6 address or a filesystem path depending on the socket family
+    // @arg port port on which the socket will be bound
     native bind(addr, port)
+
+    // Marks a connection-mode socket as accepting connections
+    // @arg backlog the maximum number of queued connections. Forced to be at least 0 
     native listen(backlog=0)
+
+    // Accept the first connection in the connection queue
+    // @return A 2-tuple containing a new socket connected to the other end of the connection and a 
+    //         string representation of the address of the bound socket on the other end
+    // @return null if the timeout has expired or if the Socket is set to non-blocking mode and the
+    //         connection queue is empty
     native accept()
-    native send(data)
-    native recv(size)
-    native sendto(addr, port, data)
-    native recvfrom(size)
+
+    // Send data from this socket to its peer. The socket must be connected to a remote socket
+    // @arg data the data to be sent
+    // @varargs flags to change the call's behaviour. Supported: MSG_EOR, MSG_OOB, MSG_NOSIGNAL
+    // @return the number of bytes sent
+    native send(data, ...)
+
+    // Receive data from remote socket. The socket should be connected to a remote socket
+    // @arg size the maximum amount of data that will be read
+    // @arg varargs flags to change the call's behaviour. Supported: MSG_PEEK, MSG_OOB, MSG_WAITALL
+    // @return the amount of data read
+    // @return 0 if no messages are available and the peer socket has performed an orderly shutdown
+    // @return null if the timeout has expired or if no message is avaiable and the socket is set
+    //         to non-blocking mode
+    native recv(size, ...)
+
+    // Send a data from an unconnected connectionless-mode socket to a target address and port
+    // @arg addr the remote address the data will be sent to. Can be an IPv4 string representation
+    //      of an IPv4 address, IPv6 address or a filesystem path depending on the Socket family.
+    //      Additionally, it can be a domain name.
+    // @arg the port on which the data will be sent
+    // @varargs flags to change the call's behaviour. Supported: MSG_EOR, MSG_OOB, MSG_NOSIGNAL
+    // @return the number of bytes sent
+    native sendto(addr, port, data, ...)
+
+    // Receive data from a connection-mode or connectionless-mode socket. Usually used with
+    // connectionless-mode sockets becuase it permits the retrieval of the source address and port
+    // of the received data
+    // @arg size the maximum amount of data that will be read
+    // @return a 2-tuple containing the number of read bytes and another 2-tuple containing a string
+    //         representation of the source address and an integer port
+    // @return a 2-tuple containing 0 as the first element if there are no data to be received and 
+    //         the peer has performed an orderly shutdown
+    // @return null if the timeout has expired or if there are no data to be received and the
+    //         Socket is set to non-blocking mode
+    native recvfrom(size, ...)
+
+    // Attempts to connect on a connection-mode socket at addr over port
+    // @arg addr the address to connect to.Can be an IPv4 string representation of an IPv4 address, 
+    //      IPv6 address or a filesystem path depending on the Socket family. Additionally, it can 
+    //      be a domain name. 
     native connect(addr, port)
+
+    // Set the timeout (in milliseconds) for the Socket
+    native setTimeout(ms)
+
+    // Get the timeout of the socket
+    // @return the timeout in milliseconds
+    native getTimeout()
+
+    // Set the scoket to blockiong or non-blocking mode
+    // @arg block whether to set the socket as blocking or non-blocking
+    native setBlocking(block)
+
+    // Closes the socket and terminates the connection on connection-mode sockets.
     native close()
 end
 

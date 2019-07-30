@@ -2,12 +2,13 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
-
 
 union sockaddr_union {
     struct sockaddr sa;
@@ -86,6 +87,22 @@ static bool fillSockaddr(BlangVM *vm, union sockaddr_union *sockaddr, int family
     }
     
     return true;
+}
+
+static int readFlags(BlangVM *vm, int slot) {
+    int flags = 0;
+
+    blTupleGetLength(vm, slot);
+    size_t length = blGetNumber(vm, -1);
+    blPop(vm);
+
+    for(size_t i = 0; i < length; i++) {
+        blTupleGet(vm, i, slot);
+        if(!blCheckInt(vm, -1, "flags")) return -1;
+        flags |= (int)blGetNumber(vm, -1);
+        blPop(vm);
+    }
+    return flags;
 }
 
 //class Socket
@@ -219,33 +236,37 @@ static bool Socket_accept(BlangVM *vm) {
 }
 
 static bool Socket_send(BlangVM *vm) {
-    // TODO: allow flags?
     if(!blCheckStr(vm, 1, "data")) return false;
     const char *buf = blGetString(vm, 1);
     size_t bufLen = blGetStringSz(vm, 1);
+    int flags = readFlags(vm, 2);
+    if(flags == -1) return false;
 
     blGetField(vm, 0, M_SOCKET_FD);
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
     int sock = blGetNumber(vm, -1);
 
-    ssize_t sent = 0;
-    while((sent = send(sock, buf + sent, bufLen - sent, MSG_NOSIGNAL)) < (ssize_t) bufLen) {
-        if(sent == -1) {
-            BL_RAISE(vm, "SocketException", strerror(errno));
+    ssize_t sent;
+    if((sent = send(sock, buf, bufLen, flags)) < 0) {
+        if(errno == EAGAIN) {
+            blPushNull(vm);
+            return true;
         }
+        BL_RAISE(vm, "So9cketException", strerror(errno));
     }
 
-    blPushNull(vm);
+    blPushNumber(vm, sent);
     return true;
 }
 
 static bool Socket_recv(BlangVM *vm) {
-    // TODO: allow flags?
     if(!blCheckInt(vm, 1, "size")) return false;
     if(blGetNumber(vm, 1) < 0) {
         BL_RAISE(vm, "TypeException", "Size must be >= 0.");
     }
     size_t size = blGetNumber(vm, 1);
+    int flags = readFlags(vm, 2);
+    if(flags == -1) return false;
 
     blGetField(vm, 0, M_SOCKET_FD);
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
@@ -255,7 +276,7 @@ static bool Socket_recv(BlangVM *vm) {
     blBufferInitSz(vm, &buf, size);
 
     ssize_t received;
-    if((received = recv(sock, buf.data, size, 0)) < 0) {
+    if((received = recv(sock, buf.data, size, flags)) < 0) {
         if(errno == EWOULDBLOCK || errno == EAGAIN) {
             blBufferFree(&buf);
             blPushNull(vm);
@@ -272,6 +293,8 @@ static bool Socket_sendto(BlangVM *vm) {
     if(!blCheckStr(vm, 1, "addr") || !blCheckInt(vm, 2, "port") || !blCheckStr(vm, 3, "data")) {
         return false;
     }
+    int flags = readFlags(vm, 4);
+    if(flags == -1) return false;
 
     blGetField(vm, 0, M_SOCKET_FD);
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
@@ -304,6 +327,8 @@ static bool Socket_recvfrom(BlangVM *vm) {
         return false;
     }
     size_t size = blGetNumber(vm, 1);
+    int flags = readFlags(vm, 2);
+    if(flags == -1) return false;
 
     blGetField(vm, 0, M_SOCKET_FD);
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
@@ -388,6 +413,64 @@ static bool Socket_connect(BlangVM *vm) {
     return true;
 }
 
+static bool Socket_setTimeout(BlangVM *vm) {
+    if(!blCheckInt(vm, 1, "ms")) {
+        return false;
+    }
+    int ms = blGetNumber(vm, 1);
+
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+
+    struct timeval timeout = {0};
+    timeout.tv_usec = ms * 1000;
+    if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void*) &timeout, sizeof(timeout)) < 0) {
+        BL_RAISE(vm, "SocketException", strerror(errno));
+    }
+
+    blPushNull(vm);
+    return true;    
+}
+
+static bool Socket_getTimeout(BlangVM *vm) {
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+
+    struct timeval timeout = {0};
+    socklen_t timeLen = sizeof(timeout);
+    if(getsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void*) &timeout, &timeLen) < 0) {
+        BL_RAISE(vm, "SocketException", strerror(errno));
+    }
+    blPushNumber(vm, timeout.tv_usec / 1000);
+    return true;
+}
+
+static bool Socket_setBlocking(BlangVM *vm) {
+    if(!blCheckBool(vm, 1, "block")) {
+        return false;
+    }
+    bool block = blGetBoolean(vm, 1);
+    
+    blGetField(vm, 0, M_SOCKET_FD);
+    if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
+    int sock = blGetNumber(vm, -1);
+
+    if(block) {
+        if(fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) & ~O_NONBLOCK) < 0) {
+            BL_RAISE(vm, "SocketException", strerror(errno));
+        }
+    } else {
+        if(fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK) < 0) {
+            BL_RAISE(vm, "SocketException", strerror(errno));
+        }
+    }
+
+    blPushNull(vm);
+    return true;    
+}
+
 static bool Socket_close(BlangVM *vm) {
     blGetField(vm, 0, M_SOCKET_FD);
     if(!blCheckInt(vm, -1, "Socket."M_SOCKET_FD)) return false;
@@ -423,6 +506,30 @@ static bool init(BlangVM *vm) {
     blSetGlobal(vm, NULL, "SOCK_DGRAM");
     blPop(vm);
 
+    blPushNumber(vm, MSG_PEEK);
+    blSetGlobal(vm, NULL, "MSG_PEEK");
+    blPop(vm);
+
+    blPushNumber(vm, MSG_OOB);
+    blSetGlobal(vm, NULL, "MSG_OOB");
+    blPop(vm);
+
+    blPushNumber(vm, MSG_WAITALL);
+    blSetGlobal(vm, NULL, "MSG_WAITALL");
+    blPop(vm);
+
+    blPushNumber(vm, MSG_EOR);
+    blSetGlobal(vm, NULL, "MSG_EOR");
+    blPop(vm);
+
+    blPushNumber(vm, MSG_OOB);
+    blSetGlobal(vm, NULL, "MSG_OOB");
+    blPop(vm);
+
+    blPushNumber(vm, MSG_NOSIGNAL);
+    blSetGlobal(vm, NULL, "MSG_NOSIGNAL");
+    blPop(vm);
+
     blPushNull(vm);
     return true;
 }
@@ -439,6 +546,9 @@ static BlNativeReg registry[] = {
     BL_REGMETH(Socket, sendto, &Socket_sendto)
     BL_REGMETH(Socket, recvfrom, &Socket_recvfrom)
     BL_REGMETH(Socket, connect, &Socket_connect)
+    BL_REGMETH(Socket, setTimeout, &Socket_setTimeout)
+    BL_REGMETH(Socket, getTimeout, &Socket_getTimeout)
+    BL_REGMETH(Socket, setBlocking, &Socket_setBlocking)
     BL_REGMETH(Socket, close, &Socket_close)
     BL_REGFUNC(init, &init)
     BL_REGEND
