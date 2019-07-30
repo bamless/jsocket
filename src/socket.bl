@@ -50,8 +50,8 @@ class Socket
     native recv(size, ...)
 
     // Send a data from an unconnected connectionless-mode socket to a target address and port
-    // @arg addr the remote address the data will be sent to. Can be an IPv4 string representation
-    //      of an IPv4 address, IPv6 address or a filesystem path depending on the Socket family.
+    // @arg addr the remote address the data will be sent to. Can be a string representation of an 
+    //      IPv4 address, IPv6 address or a filesystem path depending on the Socket family.
     //      Additionally, it can be a domain name.
     // @arg the port on which the data will be sent
     // @varargs flags to change the call's behaviour. Supported: MSG_EOR, MSG_OOB, MSG_NOSIGNAL
@@ -71,9 +71,9 @@ class Socket
     native recvfrom(size, ...)
 
     // Attempts to connect on a connection-mode socket at addr over port
-    // @arg addr the address to connect to.Can be an IPv4 string representation of an IPv4 address, 
-    //      IPv6 address or a filesystem path depending on the Socket family. Additionally, it can 
-    //      be a domain name. 
+    // @arg addr the address to connect to.Can be a string representation of an IPv4 address, IPv6 
+    //      address or a filesystem path depending on the Socket family. Additionally, it can be a 
+    //      domain name. 
     native connect(addr, port)
 
     // Set the timeout (in milliseconds) for the Socket
