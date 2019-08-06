@@ -1,4 +1,4 @@
-# blsocket
+# jsocket
 A straightforward socket library for the [J*](https://github.com/bamless/jstar) language.
 This library is basically a direct wrapper of the C Berkeley socket API.
 
