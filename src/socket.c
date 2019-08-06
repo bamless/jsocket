@@ -554,6 +554,6 @@ static JStarNativeReg registry[] = {
     JSR_REGEND
 };
 
-JSTAR_API JStarNativeReg *bl_open_socket() {
+JSTAR_API JStarNativeReg *jsr_open_socket() {
     return registry;
 }

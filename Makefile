@@ -1,4 +1,4 @@
-DESTDIR=/usr/local/lib/blang
+DESTDIR=/usr/local/lib/jstar
 
 all: dir bin/libsocket.so
 
@@ -12,7 +12,7 @@ bin/libsocket.so: src/socket.c
 .PHONY: install
 install:
 	mkdir -p $(DESTDIR)
-	cp bin/libsocket.so src/socket.bl $(DESTDIR)
+	cp bin/libsocket.so src/socket.jsr $(DESTDIR)
 
 .PHONY: clean
 clean:
