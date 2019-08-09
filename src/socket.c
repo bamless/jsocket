@@ -107,7 +107,7 @@ static int readFlags(JStarVM *vm, int slot) {
 
 //class Socket
 
-#define M_SOCKET_FD     "_fd"
+#define M_SOCKET_FD     "__fd"
 #define M_SOCKET_TYPE   "type"
 #define M_SOCKET_FAMILY "family"
 #define M_SOCKET_PROTO  "proto"
