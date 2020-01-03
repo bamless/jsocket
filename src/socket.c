@@ -252,7 +252,7 @@ static bool Socket_send(JStarVM *vm) {
             jsrPushNull(vm);
             return true;
         }
-        JSR_RAISE(vm, "So9cketException", strerror(errno));
+        JSR_RAISE(vm, "SocketException", strerror(errno));
     }
 
     jsrPushNumber(vm, sent);
