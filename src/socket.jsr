@@ -91,7 +91,7 @@ class Socket
     native close()
 end
 
-class SocketException : Exception end
+class SocketException is Exception end
 
 begin
     native init()
