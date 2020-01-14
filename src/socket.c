@@ -91,11 +91,7 @@ static bool fillSockaddr(JStarVM *vm, union sockaddr_union *sockaddr, int family
 
 static int readFlags(JStarVM *vm, int slot) {
     int flags = 0;
-
-    jsrTupleGetLength(vm, slot);
-    size_t length = jsrGetNumber(vm, -1);
-    jsrPop(vm);
-
+    size_t length =  jsrTupleGetLength(vm, slot);
     for(size_t i = 0; i < length; i++) {
         jsrTupleGet(vm, i, slot);
         if(!jsrCheckInt(vm, -1, "flags")) return -1;
