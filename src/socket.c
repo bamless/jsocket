@@ -139,7 +139,7 @@ static bool Socket_new(JStarVM *vm) {
 }
 
 static bool Socket_bind(JStarVM *vm) {
-    if(!jsrCheckStr(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port")) {
+    if(!jsrCheckString(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port")) {
         return false;
     }
 
@@ -234,7 +234,7 @@ static bool Socket_accept(JStarVM *vm) {
 }
 
 static bool Socket_send(JStarVM *vm) {
-    if(!jsrCheckStr(vm, 1, "data")) return false;
+    if(!jsrCheckString(vm, 1, "data")) return false;
     const char *buf = jsrGetString(vm, 1);
     size_t bufLen = jsrGetStringSz(vm, 1);
     int flags = readFlags(vm, 2);
@@ -288,7 +288,7 @@ static bool Socket_recv(JStarVM *vm) {
 }
 
 static bool Socket_sendto(JStarVM *vm) {
-    if(!jsrCheckStr(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port") || !jsrCheckStr(vm, 3, "data")) {
+    if(!jsrCheckString(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port") || !jsrCheckString(vm, 3, "data")) {
         return false;
     }
     int flags = readFlags(vm, 4);
@@ -385,7 +385,7 @@ static bool Socket_recvfrom(JStarVM *vm) {
 }
 
 static bool Socket_connect(JStarVM *vm) {
-    if(!jsrCheckStr(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port")) {
+    if(!jsrCheckString(vm, 1, "addr") || !jsrCheckInt(vm, 2, "port")) {
         return false;
     }
 
@@ -446,7 +446,7 @@ static bool Socket_getTimeout(JStarVM *vm) {
 }
 
 static bool Socket_setBlocking(JStarVM *vm) {
-    if(!jsrCheckBool(vm, 1, "block")) {
+    if(!jsrCheckBoolean(vm, 1, "block")) {
         return false;
     }
     bool block = jsrGetBoolean(vm, 1);
