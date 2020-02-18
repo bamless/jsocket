@@ -93,6 +93,32 @@ end
 
 class SocketException is Exception end
 
+// Returns a TCP socket
+fun tcp()
+    return Socket(AF_INET, SOCK_STREAM)
+end
+
+// Return an UDP socket
+fun udp()
+    return Socket(AF_INET, SOCK_DGRAM)
+end
+
+// Connects and returns a TCP socket at `addr` over `port`
+fun connect(addr, port)
+    var sock = tcp()
+    sock.connect(addr, port)
+    return sock
+end
+
+// Binds and returns a TCP socket to `addr` over `port` ready to accept() incoming connections
+// @arg backlog the maximum number of queued connections. Forced to be at least 0 
+fun bind(addr, port, backlog=0)
+    var sock = tcp()
+    sock.bind(addr, port)
+    sock.listen(backlog)
+    return sock
+end
+
 begin
     native init()
     init()
