@@ -61,8 +61,9 @@ static bool fillSockaddr(JStarVM *vm, union sockaddr_union *sockaddr, int family
         if(err < 0) JSR_RAISE(vm, "SocketExcpetion", strerror(errno));
         // not a valid ipv4, try hostname
         if(err == 0) {
-            err = resolveHostName(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr);
-            if(err) JSR_RAISE(vm, "SocketException", gai_strerror(err));
+            if((err = resolveHostName(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr))) {
+                JSR_RAISE(vm, "SocketException", gai_strerror(err));
+            }
         }
         break;
     }
@@ -73,8 +74,9 @@ static bool fillSockaddr(JStarVM *vm, union sockaddr_union *sockaddr, int family
         if(err < 0) JSR_RAISE(vm, "SocketExcpetion", strerror(errno));
         // not a valid ipv6, try hostname
         if(err == 0) {
-            err = resolveHostName(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr);
-            if(err) JSR_RAISE(vm, "SocketException", gai_strerror(err));
+            if((err = resolveHostName(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr))) {
+                JSR_RAISE(vm, "SocketException", gai_strerror(err));
+            }
         }
         break;
     }
