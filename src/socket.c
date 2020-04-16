@@ -17,7 +17,7 @@ union sockaddr_union {
     struct sockaddr_un sun;
 };
 
-static int resolveHostName(int family, const char *hostname, void *buf) {
+static int resolveHostName(int family, const char* hostname, void* buf) {
     struct addrinfo hints, *res;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = family;
@@ -29,14 +29,14 @@ static int resolveHostName(int family, const char *hostname, void *buf) {
     if(res) {
         switch(family) {
         case AF_INET: {
-            struct sockaddr_in *sockaddr = (struct sockaddr_in *)res->ai_addr;
-            in_addr_t *ip = (in_addr_t *)buf;
+            struct sockaddr_in* sockaddr = (struct sockaddr_in*)res->ai_addr;
+            in_addr_t* ip = (in_addr_t*)buf;
             *ip = sockaddr->sin_addr.s_addr;
             break;
         }
         case AF_INET6: {
-            struct sockaddr_in6 *sockaddr = (struct sockaddr_in6 *)res->ai_addr;
-            uint8_t *ip = (uint8_t *)buf;
+            struct sockaddr_in6* sockaddr = (struct sockaddr_in6*)res->ai_addr;
+            uint8_t* ip = (uint8_t*)buf;
             memcpy(ip, sockaddr->sin6_addr.s6_addr, sizeof(sockaddr->sin6_addr.s6_addr));
             break;
         }
@@ -47,8 +47,8 @@ static int resolveHostName(int family, const char *hostname, void *buf) {
     return 0;
 }
 
-static bool fillSockaddr(JStarVM *vm, union sockaddr_union *sockaddr, int family, const char *addr,
-                         int port, socklen_t *len) {
+static bool fillSockaddr(JStarVM* vm, union sockaddr_union* sockaddr, int family, const char* addr,
+                         int port, socklen_t* len) {
     memset(sockaddr, 0, sizeof(*sockaddr));
     sockaddr->sa.sa_family = family;
 
@@ -92,7 +92,7 @@ static bool fillSockaddr(JStarVM *vm, union sockaddr_union *sockaddr, int family
     return true;
 }
 
-static int readFlags(JStarVM *vm, int slot) {
+static int readFlags(JStarVM* vm, int slot) {
     int flags = 0;
     size_t length = jsrTupleGetLength(vm, slot);
     for(size_t i = 0; i < length; i++) {
@@ -111,7 +111,7 @@ static int readFlags(JStarVM *vm, int slot) {
 #define M_SOCKET_FAMILY "family"
 #define M_SOCKET_PROTO  "proto"
 
-static bool Socket_new(JStarVM *vm) {
+static bool Socket_new(JStarVM* vm) {
     JSR_CHECK(Int, 1, "family");
     JSR_CHECK(Int, 2, "type");
     JSR_CHECK(Int, 3, "proto");
@@ -139,7 +139,7 @@ static bool Socket_new(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_bind(JStarVM *vm) {
+static bool Socket_bind(JStarVM* vm) {
     JSR_CHECK(String, 1, "addr");
     JSR_CHECK(Int, 2, "port");
 
@@ -165,7 +165,7 @@ static bool Socket_bind(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_listen(JStarVM *vm) {
+static bool Socket_listen(JStarVM* vm) {
     JSR_CHECK(Int, 1, "backlog");
     int backlog = jsrGetNumber(vm, 1);
     if(backlog < 0) backlog = 0;
@@ -182,7 +182,7 @@ static bool Socket_listen(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_accept(JStarVM *vm) {
+static bool Socket_accept(JStarVM* vm) {
     jsrGetField(vm, 0, M_SOCKET_FD);
     JSR_CHECK(Int, -1, "Socket." M_SOCKET_FD);
     int sock = jsrGetNumber(vm, -1);
@@ -234,9 +234,9 @@ static bool Socket_accept(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_send(JStarVM *vm) {
+static bool Socket_send(JStarVM* vm) {
     JSR_CHECK(String, 1, "data");
-    const char *buf = jsrGetString(vm, 1);
+    const char* buf = jsrGetString(vm, 1);
     size_t bufLen = jsrGetStringSz(vm, 1);
 
     int flags = readFlags(vm, 2);
@@ -259,7 +259,7 @@ static bool Socket_send(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_recv(JStarVM *vm) {
+static bool Socket_recv(JStarVM* vm) {
     JSR_CHECK(Int, 1, "size");
     if(jsrGetNumber(vm, 1) < 0) {
         JSR_RAISE(vm, "TypeException", "Size must be >= 0.");
@@ -289,7 +289,7 @@ static bool Socket_recv(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_sendto(JStarVM *vm) {
+static bool Socket_sendto(JStarVM* vm) {
     JSR_CHECK(String, 1, "addr");
     JSR_CHECK(Int, 2, "port");
     JSR_CHECK(String, 3, "data");
@@ -311,7 +311,7 @@ static bool Socket_sendto(JStarVM *vm) {
         return false;
     }
 
-    const char *data = jsrGetString(vm, 3);
+    const char* data = jsrGetString(vm, 3);
     size_t dataLen = jsrGetStringSz(vm, 3);
 
     ssize_t sent;
@@ -323,7 +323,7 @@ static bool Socket_sendto(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_recvfrom(JStarVM *vm) {
+static bool Socket_recvfrom(JStarVM* vm) {
     JSR_CHECK(Int, 1, "size");
     size_t size = jsrGetNumber(vm, 1);
     int flags = readFlags(vm, 2);
@@ -386,7 +386,7 @@ static bool Socket_recvfrom(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_connect(JStarVM *vm) {
+static bool Socket_connect(JStarVM* vm) {
     JSR_CHECK(String, 1, "addr");
     JSR_CHECK(Int, 2, "port");
 
@@ -412,7 +412,7 @@ static bool Socket_connect(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_setTimeout(JStarVM *vm) {
+static bool Socket_setTimeout(JStarVM* vm) {
     JSR_CHECK(Int, 1, "ms");
     int ms = jsrGetNumber(vm, 1);
 
@@ -422,7 +422,7 @@ static bool Socket_setTimeout(JStarVM *vm) {
 
     struct timeval timeout = {0};
     timeout.tv_usec = ms * 1000;
-    if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void *)&timeout, sizeof(timeout)) < 0) {
+    if(setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void*)&timeout, sizeof(timeout)) < 0) {
         JSR_RAISE(vm, "SocketException", strerror(errno));
     }
 
@@ -430,21 +430,21 @@ static bool Socket_setTimeout(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_getTimeout(JStarVM *vm) {
+static bool Socket_getTimeout(JStarVM* vm) {
     jsrGetField(vm, 0, M_SOCKET_FD);
     JSR_CHECK(Int, -1, "Socket." M_SOCKET_FD);
     int sock = jsrGetNumber(vm, -1);
 
     struct timeval timeout = {0};
     socklen_t timeLen = sizeof(timeout);
-    if(getsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void *)&timeout, &timeLen) < 0) {
+    if(getsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (void*)&timeout, &timeLen) < 0) {
         JSR_RAISE(vm, "SocketException", strerror(errno));
     }
     jsrPushNumber(vm, timeout.tv_usec / 1000);
     return true;
 }
 
-static bool Socket_setBlocking(JStarVM *vm) {
+static bool Socket_setBlocking(JStarVM* vm) {
     JSR_CHECK(Boolean, 1, "block");
     bool block = jsrGetBoolean(vm, 1);
 
@@ -466,7 +466,7 @@ static bool Socket_setBlocking(JStarVM *vm) {
     return true;
 }
 
-static bool Socket_close(JStarVM *vm) {
+static bool Socket_close(JStarVM* vm) {
     jsrGetField(vm, 0, M_SOCKET_FD);
     JSR_CHECK(Int, -1, "Socket." M_SOCKET_FD);
     int sock = jsrGetNumber(vm, -1);
@@ -480,7 +480,7 @@ static bool Socket_close(JStarVM *vm) {
 // end
 
 // Init constants 'n stuff
-static bool init(JStarVM *vm) {
+static bool init(JStarVM* vm) {
     jsrPushNumber(vm, AF_INET);
     jsrSetGlobal(vm, NULL, "AF_INET");
     jsrPop(vm);
