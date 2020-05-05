@@ -18,32 +18,29 @@ union sockaddr_union {
 };
 
 static int resolveHostName(int family, const char* hostname, void* buf) {
-    struct addrinfo hints, *res;
-    memset(&hints, 0, sizeof(hints));
+    struct addrinfo hints = {0}, *res;
     hints.ai_family = family;
     hints.ai_flags |= AI_CANONNAME;
 
     int err = getaddrinfo(hostname, NULL, &hints, &res);
     if(err) return err;
 
-    if(res) {
-        switch(family) {
-        case AF_INET: {
-            struct sockaddr_in* sockaddr = (struct sockaddr_in*)res->ai_addr;
-            in_addr_t* ip = (in_addr_t*)buf;
-            *ip = sockaddr->sin_addr.s_addr;
-            break;
-        }
-        case AF_INET6: {
-            struct sockaddr_in6* sockaddr = (struct sockaddr_in6*)res->ai_addr;
-            uint8_t* ip = (uint8_t*)buf;
-            memcpy(ip, sockaddr->sin6_addr.s6_addr, sizeof(sockaddr->sin6_addr.s6_addr));
-            break;
-        }
-        }
-        freeaddrinfo(res);
+    switch(family) {
+    case AF_INET: {
+        struct sockaddr_in* sockaddr = (struct sockaddr_in*)res->ai_addr;
+        in_addr_t* ip = (in_addr_t*)buf;
+        *ip = sockaddr->sin_addr.s_addr;
+        break;
+    }
+    case AF_INET6: {
+        struct sockaddr_in6* sockaddr = (struct sockaddr_in6*)res->ai_addr;
+        uint8_t* ip = (uint8_t*)buf;
+        memcpy(ip, sockaddr->sin6_addr.s6_addr, sizeof(sockaddr->sin6_addr.s6_addr));
+        break;
+    }
     }
 
+    freeaddrinfo(res);
     return 0;
 }
 
@@ -58,11 +55,10 @@ static bool fillSockaddr(JStarVM* vm, union sockaddr_union* sockaddr, int family
         sockaddr->s4.sin_port = htons(port);
         int err = inet_pton(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr);
         if(err < 0) JSR_RAISE(vm, "SocketExcpetion", strerror(errno));
-        // not a valid ipv4, try hostname
+
         if(err == 0) {
-            if((err = resolveHostName(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr))) {
-                JSR_RAISE(vm, "SocketException", gai_strerror(err));
-            }
+            err = resolveHostName(AF_INET, addr, &sockaddr->s4.sin_addr.s_addr);
+            if(err) JSR_RAISE(vm, "SocketException", "%s: %s", addr, gai_strerror(err));
         }
         break;
     }
@@ -71,21 +67,19 @@ static bool fillSockaddr(JStarVM* vm, union sockaddr_union* sockaddr, int family
         sockaddr->s6.sin6_port = htons(port);
         int err = inet_pton(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr);
         if(err < 0) JSR_RAISE(vm, "SocketExcpetion", strerror(errno));
-        // not a valid ipv6, try hostname
+
         if(err == 0) {
-            if((err = resolveHostName(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr))) {
-                JSR_RAISE(vm, "SocketException", gai_strerror(err));
-            }
+            err = resolveHostName(AF_INET6, addr, &sockaddr->s6.sin6_addr.s6_addr);
+            if(err) JSR_RAISE(vm, "SocketException", "%s: %s", addr, gai_strerror(err));
         }
         break;
     }
-    case AF_UNIX: {
+    case AF_UNIX:
         *len = sizeof(sockaddr->sun);
         strncpy(sockaddr->sun.sun_path, addr, sizeof(sockaddr->sun.sun_path) - 1);
         break;
-    }
     default:
-        JSR_RAISE(vm, "TypeException", "Ivalid socket family: %d.", family);
+        JSR_RAISE(vm, "TypeException", "Ivalid socket family: %d", family);
         break;
     }
 
@@ -477,7 +471,7 @@ static bool Socket_close(JStarVM* vm) {
     return true;
 }
 
-// end
+// end class Socket
 
 // Init constants 'n stuff
 static bool init(JStarVM* vm) {
