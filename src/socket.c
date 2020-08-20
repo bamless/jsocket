@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <jstar.h>
+#include <jstar/jstar.h>
 #include <netdb.h>
 #include <string.h>
 #include <sys/socket.h>
