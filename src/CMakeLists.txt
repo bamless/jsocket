@@ -13,4 +13,4 @@ if(LTO)
 endif(LTO)
 
 install(TARGETS jsocket LIBRARY DESTINATION lib/jstar)
-install(FILES DESTINATION lib/jstar)
+install(FILES socket.jsr DESTINATION lib/jstar)
