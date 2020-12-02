@@ -26,7 +26,7 @@ export JSTARPATH=/usr/local/lib/jstar
 
 Once you've done that, you can start using the library by simply importing it:
 
-```
+```lua
 import socket
 
 var s = socket.connect('google.it', 80)
