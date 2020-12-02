@@ -198,7 +198,7 @@ static bool Socket_accept(JStarVM* vm) {
     jsrGetField(vm, 0, M_SOCKET_TYPE);
     jsrGetField(vm, 0, M_SOCKET_PROTO);
     jsrPushNumber(vm, clientSock);
-    if(jsrCall(vm, 4) != JSR_EVAL_SUCCESS) return false;
+    if(jsrCall(vm, 4) != JSR_SUCCESS) return false;
 
     switch(client.sa.sa_family) {
     case AF_INET: {
@@ -267,7 +267,7 @@ static bool Socket_recv(JStarVM* vm) {
     int sock = jsrGetNumber(vm, -1);
 
     JStarBuffer buf;
-    jsrBufferInitSz(vm, &buf, size);
+    jsrBufferInitCapacity(vm, &buf, size);
 
     ssize_t received;
     if((received = recv(sock, buf.data, size, flags)) < 0) {
@@ -278,7 +278,7 @@ static bool Socket_recv(JStarVM* vm) {
         }
         JSR_RAISE(vm, "SocketException", strerror(errno));
     }
-    buf.len += received;
+    buf.size += received;
     jsrBufferPush(&buf);
     return true;
 }
@@ -328,7 +328,7 @@ static bool Socket_recvfrom(JStarVM* vm) {
     int sock = jsrGetNumber(vm, -1);
 
     JStarBuffer buf;
-    jsrBufferInitSz(vm, &buf, size);
+    jsrBufferInitCapacity(vm, &buf, size);
 
     union sockaddr_union sockaddr;
     socklen_t socklen = sizeof(sockaddr);
@@ -343,7 +343,7 @@ static bool Socket_recvfrom(JStarVM* vm) {
         }
         JSR_RAISE(vm, "SocketException", strerror(errno));
     }
-    buf.len += received;
+    buf.size += received;
     jsrBufferPush(&buf);
 
     switch(sockaddr.sa.sa_family) {
