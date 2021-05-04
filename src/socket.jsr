@@ -119,7 +119,5 @@ fun bind(addr, port, backlog=0)
     return sock
 end
 
-begin
-    native init()
-    init()
-end
+static native init()
+init()
