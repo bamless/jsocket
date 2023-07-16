@@ -15,7 +15,7 @@ class Socket
     // @arg type the type pf the socket. Supported: SOCK_STREAM, SOCK_DGRAM
     // @proto usually 0, specifies the protocol to be used with the socket
     // @fd should be left to null. Used to create a new Socket object from a file descriptor
-    native new(family, type, proto=0, fd=null)
+    native construct(family, type, proto=0, fd=null)
 
     // Binds a socket to and address and a port
     // @arg addr address on which the socket will be bound. can be a string representation of an
@@ -38,7 +38,7 @@ class Socket
     // @arg data the data to be sent
     // @varargs flags to change the call's behaviour. Supported: MSG_EOR, MSG_OOB, MSG_NOSIGNAL
     // @return the number of bytes sent
-    native send(data, ...)
+    native send(data, ...args)
 
     // Receive data from remote socket. The socket should be connected to a remote socket
     // @arg size the maximum amount of data that will be read
@@ -47,7 +47,7 @@ class Socket
     // @return 0 if no messages are available and the peer socket has performed an orderly shutdown
     // @return null if the timeout has expired or if no message is avaiable and the socket is set
     //         to non-blocking mode
-    native recv(size, ...)
+    native recv(size, ...args)
 
     // Send a data from an unconnected connectionless-mode socket to a target address and port
     // @arg addr the remote address the data will be sent to. Can be a string representation of an 
@@ -56,7 +56,7 @@ class Socket
     // @arg the port on which the data will be sent
     // @varargs flags to change the call's behaviour. Supported: MSG_EOR, MSG_OOB, MSG_NOSIGNAL
     // @return the number of bytes sent
-    native sendto(addr, port, data, ...)
+    native sendto(addr, port, data, ...args)
 
     // Receive data from a connection-mode or connectionless-mode socket. Usually used with
     // connectionless-mode sockets becuase it permits the retrieval of the source address and port
@@ -68,7 +68,7 @@ class Socket
     //         the peer has performed an orderly shutdown
     // @return null if the timeout has expired or if there are no data to be received and the
     //         Socket is set to non-blocking mode
-    native recvfrom(size, ...)
+    native recvfrom(size, ...args)
 
     // Attempts to connect on a connection-mode socket at addr over port
     // @arg addr the address to connect to.Can be a string representation of an IPv4 address, IPv6 

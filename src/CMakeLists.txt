@@ -12,5 +12,6 @@ if(LTO)
     set_target_properties(jsocket PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif(LTO)
 
-install(TARGETS jsocket LIBRARY DESTINATION lib/jstar)
-install(FILES socket.jsr DESTINATION lib/jstar)
+include(GNUInstallDirs)
+install(TARGETS jsocket LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/jstar)
+install(FILES socket.jsr DESTINATION ${CMAKE_INSTALL_LIBDIR}/jstar)
