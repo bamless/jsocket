@@ -8,6 +8,10 @@ target_compile_options(jsocket
         $<$<CXX_COMPILER_ID:GNU>:-Wall -Wextra>
 )
 
+add_custom_command(TARGET jsocket POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:jsocket> ${PROJECT_SOURCE_DIR}/src
+)
+
 if(LTO)
     set_target_properties(jsocket PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif(LTO)

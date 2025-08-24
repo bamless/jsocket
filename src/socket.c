@@ -198,7 +198,7 @@ static bool Socket_accept(JStarVM* vm) {
     jsrGetField(vm, 0, M_SOCKET_TYPE);
     jsrGetField(vm, 0, M_SOCKET_PROTO);
     jsrPushNumber(vm, clientSock);
-    if(jsrCall(vm, 4) != JSR_SUCCESS) return false;
+    if(!jsrCall(vm, 4)) return false;
 
     switch(client.sa.sa_family) {
     case AF_INET: {
